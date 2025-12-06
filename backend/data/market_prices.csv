@@ -1,0 +1,15 @@
+State,District,Market,Commodity,Variety,Grade,Min_Price,Max_Price,Modal_Price,Date
+Andhra Pradesh,Chittoor,Chittoor,Tomato,Local,FAQ,1200,1500,1350,2024-12-01
+Andhra Pradesh,Chittoor,Madanapalle,Tomato,Hybrid,FAQ,1100,1400,1250,2024-12-01
+Andhra Pradesh,Krishna,Gudivada,Rice,Common,FAQ,2200,2400,2300,2024-12-01
+Andhra Pradesh,Guntur,Guntur,Chilli Red,Dry,FAQ,12000,15000,13500,2024-12-01
+Telangana,Hyderabad,Bowenpally,Onion,Red,FAQ,2500,3200,2800,2024-12-01
+Telangana,Warangal,Warangal,Cotton,Cotton (Unginned),FAQ,6800,7200,7000,2024-12-01
+Maharashtra,Nashik,Lasalgaon,Onion,Red,FAQ,2400,3000,2700,2024-12-01
+Maharashtra,Pune,Pune,Potato,Local,FAQ,1500,1800,1650,2024-12-01
+Punjab,Ludhiana,Ludhiana,Wheat,Dara,FAQ,2275,2350,2300,2024-12-01
+Karnataka,Kolar,Kolar,Tomato,Hybrid,FAQ,1000,1300,1150,2024-12-01
+Tamil Nadu,Coimbatore,Coimbatore,Coconut,Big,FAQ,18000,20000,19000,2024-12-01
+Gujarat,Rajkot,Rajkot,Groundnut,Bold,FAQ,5500,6000,5750,2024-12-01
+Madhya Pradesh,Indore,Indore,Soyabean,Yellow,FAQ,4500,4800,4650,2024-12-01
+Andhra Pradesh,Krishna,Vijayawada,Banana,Robusta,FAQ,1800,2200,2000,2024-12-01
