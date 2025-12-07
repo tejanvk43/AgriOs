@@ -53,7 +53,7 @@ const Layout = () => {
 
     const navItems = [
         { path: '/', icon: <Home size={20} />, label: t('dashboard') },
-        { path: '/agent', icon: <Bot size={20} />, label: 'AgriGenius' },
+        // { path: '/agent', icon: <Bot size={20} />, label: 'AgriGenius' }, // Moved to FAB
         { path: '/market', icon: <Store size={20} />, label: t('market') },
         { path: '/weather', icon: <CloudSun size={20} />, label: t('weather') },
         { path: '/profile', icon: <User size={20} />, label: t('profile') },
@@ -142,9 +142,9 @@ const Layout = () => {
             </aside>
 
             {/* Main Content */}
-            <div className="flex-1 flex flex-col min-w-0">
+            <div className="flex-1 flex flex-col min-w-0 relative">
                 {/* Mobile Header */}
-                <header className="lg:hidden h-16 bg-white dark:bg-gray-800 shadow-sm flex items-center px-4 justify-between">
+                <header className="lg:hidden h-16 bg-white dark:bg-gray-800 shadow-sm flex items-center px-4 justify-between sticky top-0 z-30">
                     <button onClick={toggleSidebar} className="p-2 -ml-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
                         <Menu size={24} />
                     </button>
@@ -155,6 +155,16 @@ const Layout = () => {
                 <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
                     <Outlet />
                 </main>
+
+                {/* Floating AI Button (FAB) */}
+                <Link
+                    to="/agent"
+                    className="fixed bottom-6 right-6 z-50 p-4 bg-green-600 hover:bg-green-700 text-white rounded-full shadow-lg transition-transform hover:scale-110 flex items-center justify-center animate-bounce-slow"
+                    title="Ask AgriGenius"
+                >
+                    <Bot size={32} />
+                    {/* Optional: <span className="ml-2 font-bold hidden md:inline">Ask AI</span> */}
+                </Link>
             </div>
         </div>
     );
