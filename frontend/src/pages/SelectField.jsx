@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, ArrowRight } from 'lucide-react';
+import { MapPin, ArrowRight, Trash2 } from 'lucide-react';
 
 const SelectField = () => {
     const [lands, setLands] = useState([]);
@@ -11,7 +11,7 @@ const SelectField = () => {
         const fetchLands = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch('http://localhost:5000/api/land', {
+                const response = await fetch('/api/land', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
 
@@ -28,6 +28,28 @@ const SelectField = () => {
 
         fetchLands();
     }, []);
+
+    const handleDelete = async (e, landId) => {
+        e.stopPropagation(); // Prevent card click
+        if (!window.confirm("Are you sure you want to delete this field? This action cannot be undone.")) return;
+
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`/api/land/${landId}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                setLands(lands.filter(land => land.id !== landId));
+            } else {
+                alert("Failed to delete field");
+            }
+        } catch (error) {
+            console.error("Error deleting field:", error);
+            alert("Error deleting field");
+        }
+    };
 
     if (loading) {
         return (
@@ -46,15 +68,25 @@ const SelectField = () => {
                     <div
                         key={land.id}
                         onClick={() => navigate(`/dashboard/${land.id}`)}
-                        className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all cursor-pointer border border-transparent hover:border-green-500 transform hover:-translate-y-1"
+                        className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all cursor-pointer border border-transparent hover:border-green-500 transform hover:-translate-y-1 relative group"
                     >
                         <div className="flex items-start justify-between mb-4">
                             <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-full text-green-600 dark:text-green-400">
                                 <MapPin size={24} />
                             </div>
-                            <span className="text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full">
-                                {land.totalAcres} Acres
-                            </span>
+
+                            <div className="flex gap-2">
+                                <span className="text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full flex items-center">
+                                    {land.totalAcres} Acres
+                                </span>
+                                <button
+                                    onClick={(e) => handleDelete(e, land.id)}
+                                    className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                                    title="Delete Field"
+                                >
+                                    <Trash2 size={18} />
+                                </button>
+                            </div>
                         </div>
 
                         <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">
@@ -65,8 +97,8 @@ const SelectField = () => {
                             {land.district}, {land.state}
                         </p>
 
-                        <div className="flex items-center text-blue-600 dark:text-blue-400 text-sm font-medium group">
-                            Go to Dashboard <ArrowRight size={16} className="ml-1 group-hover:translate-x-1 transition-transform" />
+                        <div className="flex items-center text-blue-600 dark:text-blue-400 text-sm font-medium group-card-hover">
+                            Go to Dashboard <ArrowRight size={16} className="ml-1 transition-transform" />
                         </div>
                     </div>
                 ))}

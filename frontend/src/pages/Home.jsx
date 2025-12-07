@@ -18,7 +18,7 @@ const Home = () => {
         const fetchLand = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch(`http://localhost:5000/api/land/${landId}`, {
+                const response = await fetch(`/api/land/${landId}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 if (response.ok) {

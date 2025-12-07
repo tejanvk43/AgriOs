@@ -1,20 +1,45 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const RootRedirect = () => {
     const navigate = useNavigate();
-    const [loading, setLoading] = useState(true);
+    const { user, loading } = useAuth(); // Use context instead of manual fetch if possible, or fallback
+    const [checking, setChecking] = useState(true);
 
     useEffect(() => {
-        const checkFields = async () => {
+        // Wait for AuthContext to load
+        if (loading) return;
+
+        if (!user) {
+            navigate('/login');
+            return;
+        }
+
+        const handleRouting = async () => {
             try {
-                const token = localStorage.getItem('token');
-                if (!token) {
-                    navigate('/login');
-                    return;
+                // Role Based Redirect
+                switch (user.role) {
+                    case 'SUPER_ADMIN':
+                        navigate('/admin/dashboard');
+                        return;
+                    case 'GODOWN_MANAGER':
+                        navigate('/godown/dashboard');
+                        return;
+                    case 'GOV_BODY_OFFICER':
+                        navigate('/gov/dashboard');
+                        return;
+                    case 'DATA_ANALYST':
+                        navigate('/admin/dashboard'); // Or specific analyst view
+                        return;
+                    default:
+                        // Fallback implies Farmer or others --> Check Land Records
+                        break;
                 }
 
-                const response = await fetch('http://localhost:5000/api/land', {
+                // Farmer Logic
+                const token = localStorage.getItem('token');
+                const response = await fetch('/api/land', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
 
@@ -22,29 +47,25 @@ const RootRedirect = () => {
                     const lands = await response.json();
 
                     if (lands.length === 0) {
-                        // No fields -> Go to Profile to add one
                         navigate('/profile');
                     } else if (lands.length === 1) {
-                        // One field -> Direct Dashboard
                         navigate(`/dashboard/${lands[0].id}`);
                     } else {
-                        // Multiple fields -> Selection Screen
                         navigate('/select-field');
                     }
                 } else {
-                    // Error fetching? Maybe token expired
                     navigate('/login');
                 }
             } catch (error) {
                 console.error('Error routing:', error);
                 navigate('/login');
             } finally {
-                setLoading(false);
+                setChecking(false);
             }
         };
 
-        checkFields();
-    }, [navigate]);
+        handleRouting();
+    }, [navigate, user, loading]);
 
     return (
         <div className="flex justify-center items-center h-screen bg-white dark:bg-gray-900">

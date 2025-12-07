@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MapPin, FileCheck, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = '/api';
 
 const LandVerifier = ({ onVerificationSuccess }) => {
     const { i18n } = useTranslation();

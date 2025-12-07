@@ -31,7 +31,7 @@ const WeatherWidget = ({ location }) => {
                     // actually let's keep full string, OWM is okay.
                 }
 
-                const response = await fetch(`http://localhost:5000/api/weather?location=${encodeURIComponent(query)}`);
+                const response = await fetch(`/api/weather?location=${encodeURIComponent(query)}`);
                 if (response.ok) {
                     const data = await response.json();
                     setWeather({

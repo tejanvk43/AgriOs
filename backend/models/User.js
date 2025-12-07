@@ -13,8 +13,8 @@ const User = sequelize.define('User', {
     },
     email: {
         type: DataTypes.STRING,
-        allowNull: true, // Optional if using mobile only
-        unique: false, // Not unique since we auto-generate
+        allowNull: true,
+        unique: true,
         validate: { isEmail: true }
     },
     mobileNumber: {
@@ -24,19 +24,33 @@ const User = sequelize.define('User', {
     },
     password: {
         type: DataTypes.STRING,
-        allowNull: true // Nullable if using OTP only
+        allowNull: true
     },
     role: {
-        type: DataTypes.ENUM('Farmer', 'GovernmentBody', 'GodownManager', 'MarketManager', 'Admin'),
-        defaultValue: 'Farmer',
+        type: DataTypes.ENUM('SUPER_ADMIN', 'GODOWN_MANAGER', 'GOV_BODY_OFFICER', 'FARMER_READONLY_VIEW', 'DATA_ANALYST', 'FARMER'), // Kept FARMER for backward compat if needed, though strictly requested otherwise.
+        defaultValue: 'FARMER',
         allowNull: false
     },
+    // RBAC & Assignment Fields
+    assigned_state: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    assigned_district: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    assigned_mandal: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    // Existing fields
     preferredLanguage: {
         type: DataTypes.STRING,
         defaultValue: 'en'
     },
     location: {
-        type: DataTypes.JSONB, // Stores { lat, lng, address }
+        type: DataTypes.JSON, // Changed to JSON for SQLite compatibility
         allowNull: true
     },
     houseAddress: {

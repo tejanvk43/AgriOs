@@ -11,11 +11,33 @@ exports.getCurrentWeather = async (req, res) => {
             return res.status(400).json({ message: 'Location is required' });
         }
 
-        // Use the API key from env
         const apiKey = process.env.WEATHER_API_KEY;
-        const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)}&units=metric&appid=${apiKey}`;
 
-        const response = await axios.get(apiUrl);
+        // Helper function to fetch weather
+        const fetchWeather = async (query) => {
+            const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(query)}&units=metric&appid=${apiKey}`;
+            return await axios.get(apiUrl);
+        };
+
+        let response;
+        try {
+            response = await fetchWeather(location);
+        } catch (err) {
+            // If 404 and location has commas, try the last part (District/City)
+            if (err.response && err.response.status === 404 && location.includes(',')) {
+                const parts = location.split(',');
+                const fallbackQuery = parts[parts.length - 1].trim(); // Try the district/city
+                console.log(`Weather 404 for "${location}", retrying with "${fallbackQuery}"`);
+                try {
+                    response = await fetchWeather(fallbackQuery);
+                } catch (fallbackErr) {
+                    throw fallbackErr; // Throw original or fallback error
+                }
+            } else {
+                throw err;
+            }
+        }
+
         const data = response.data;
 
         // Simplify response for frontend

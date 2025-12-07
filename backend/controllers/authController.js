@@ -117,7 +117,13 @@ const loginUser = async (req, res) => {
     try {
         const user = await User.findOne({ where: { mobileNumber } });
 
-        if (user && (await bcrypt.compare(password, user.password))) {
+        if (!process.env.JWT_SECRET) {
+            console.error('❌ FATAL: JWT_SECRET is not defined in .env');
+            return res.status(500).json({ message: 'Server Configuration Error' });
+        }
+
+        // Check if user exists and has a password set
+        if (user && user.password && (await bcrypt.compare(password, user.password))) {
             console.log('✅ Login successful for:', mobileNumber);
             res.json({
                 _id: user.id,
@@ -125,15 +131,19 @@ const loginUser = async (req, res) => {
                 email: user.email,
                 mobileNumber: user.mobileNumber,
                 role: user.role,
+                assigned_state: user.assigned_state,
+                assigned_district: user.assigned_district,
+                assigned_mandal: user.assigned_mandal,
                 token: generateToken(user.id),
             });
         } else {
             console.log('❌ Invalid credentials for:', mobileNumber);
+            // Distinguish between User Not Found / No Password / Wrong Password if needed for debug, but generic for security
             res.status(401).json({ message: 'Invalid mobile number or password' });
         }
     } catch (error) {
         console.error('❌ Login error:', error);
-        res.status(500).json({ message: 'Server Error' });
+        res.status(500).json({ message: 'Server Error', error: error.message });
     }
 };
 

@@ -13,7 +13,7 @@ const MyCropsWidget = ({ landId }) => {
         const fetchCrops = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch(`http://localhost:5000/api/crops/land/${landId}`, {
+                const response = await fetch(`/api/crops/land/${landId}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 if (response.ok) {

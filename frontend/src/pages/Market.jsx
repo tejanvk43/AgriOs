@@ -46,7 +46,7 @@ const Market = () => {
 
             {/* Map Placeholder */}
             <div className="h-64 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center relative overflow-hidden border border-gray-200 dark:border-gray-700">
-                <div className="absolute inset-0 opacity-10 bg-[url('https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Google_Maps_Logo_2020.svg/1024px-Google_Maps_Logo_2020.svg.png')] bg-center bg-no-repeat bg-contain"></div>
+                <div className="absolute inset-0 opacity-10 bg-gray-200 dark:bg-gray-700 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-100 via-gray-300 to-gray-400"></div>
                 <div className="z-10 text-center">
                     <MapPin size={48} className="mx-auto text-red-500 mb-2" />
                     <p className="text-gray-500 font-medium">Interactive Map View</p>

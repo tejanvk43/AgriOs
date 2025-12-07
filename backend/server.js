@@ -8,7 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 const { connectDB } = require('./config/db');
@@ -20,6 +20,10 @@ const userRoutes = require('./routes/userRoutes');
 const cropRoutes = require('./routes/cropRoutes');
 const weatherRoutes = require('./routes/weatherRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+
+const adminRoutes = require('./routes/adminRoutes');
+const godownRoutes = require('./routes/godownRoutes');
+const govRoutes = require('./routes/govRoutes');
 
 // Connect to Database
 connectDB().then(() => {
@@ -34,6 +38,9 @@ app.use('/api/users', userRoutes);
 app.use('/api/crops', cropRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/godowns', godownRoutes);
+app.use('/api/gov', govRoutes);
 
 app.get('/', (req, res) => {
   res.send('AI Smart Farmer Backend is running');

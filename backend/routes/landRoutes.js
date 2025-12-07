@@ -5,7 +5,8 @@ const {
     verifyLandRecord,
     saveLandRecords,
     getLandRecords,
-    getLandById
+    getLandById,
+    deleteLandRecord
 } = require('../controllers/landController');
 
 // POST /api/land/verify - Verify land record (Public)
@@ -19,5 +20,8 @@ router.get('/', protect, getLandRecords);
 
 // GET /api/land/:id - Get specific land (Private)
 router.get('/:id', protect, getLandById);
+
+// DELETE /api/land/:id - Delete land record (Private)
+router.delete('/:id', protect, deleteLandRecord);
 
 module.exports = router;

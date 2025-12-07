@@ -1,63 +1,69 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Menu, X, Home, CloudSun, Store, User, LogOut, Globe, Moon, Sun, Bot } from 'lucide-react';
+import { Menu, X, Home, CloudSun, Store, User, LogOut, Globe, Moon, Sun, Bot, LayoutDashboard, Users, Warehouse, ScrollText, ClipboardList, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 const Layout = () => {
     const { t, i18n } = useTranslation();
-    const { logout } = useAuth();
+    const { user, logout } = useAuth(); // Added user
+    const { isDarkMode, toggleTheme } = useTheme();
     const navigate = useNavigate();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [isDarkMode, setIsDarkMode] = useState(() => {
-        return localStorage.getItem('theme') === 'dark' || false;
-    });
     const location = useLocation();
-
-    // Apply saved theme on mount
-    useEffect(() => {
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme === 'dark') {
-            document.documentElement.classList.add('dark');
-            setIsDarkMode(true);
-        } else {
-            document.documentElement.classList.remove('dark');
-            setIsDarkMode(false);
-        }
-    }, []);
-
-    const handleLogout = () => {
-        logout();
-        navigate('/login');
-    };
 
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-    const toggleTheme = () => {
-        const newTheme = !isDarkMode;
-        setIsDarkMode(newTheme);
-
-        if (newTheme) {
-            document.documentElement.classList.add('dark');
-            localStorage.setItem('theme', 'dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-            localStorage.setItem('theme', 'light');
+    const handleLogout = async () => {
+        try {
+            await logout();
+            navigate('/login');
+        } catch (error) {
+            console.error("Failed to log out", error);
         }
     };
 
     const changeLanguage = (lang) => {
         i18n.changeLanguage(lang);
-        localStorage.setItem('language', lang); // Save to localStorage
+        localStorage.setItem('language', lang);
     };
 
-    const navItems = [
-        { path: '/', icon: <Home size={20} />, label: t('dashboard') },
-        // { path: '/agent', icon: <Bot size={20} />, label: 'AgriGenius' }, // Moved to FAB
-        { path: '/market', icon: <Store size={20} />, label: t('market') },
-        { path: '/weather', icon: <CloudSun size={20} />, label: t('weather') },
-        { path: '/profile', icon: <User size={20} />, label: t('profile') },
-    ];
+    // Role-Based Navigation Items
+    const getNavItems = () => {
+        const role = user?.role;
+
+        switch (role) {
+            case 'SUPER_ADMIN':
+                return [
+                    { path: '/admin/dashboard', icon: <LayoutDashboard size={20} />, label: 'Admin Dashboard' },
+                    // Placeholder items for future
+                    { path: '/admin/users', icon: <Users size={20} />, label: 'User Management' },
+                ];
+            case 'GODOWN_MANAGER':
+                return [
+                    { path: '/godown/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
+                    { path: '/godown/stock-logs', icon: <ClipboardList size={20} />, label: 'Stock Logs' },
+                    { path: '/godown/farmers', icon: <Users size={20} />, label: 'Farmers' }
+                ];
+            case 'GOV_BODY_OFFICER':
+                return [
+                    { path: '/gov/dashboard', icon: <LayoutDashboard size={20} />, label: 'Officer Dashboard' },
+                    { path: '/gov/dashboard', icon: <ScrollText size={20} />, label: 'Advisories' },
+                    { path: '/gov/dashboard', icon: <CheckCircle size={20} />, label: 'Approvals' }
+                ];
+            default: // Farmer & Others
+                return [
+                    { path: '/', icon: <Home size={20} />, label: t('dashboard') },
+                    { path: '/market', icon: <Store size={20} />, label: t('market') },
+                    { path: '/weather', icon: <CloudSun size={20} />, label: t('weather') },
+                    { path: '/crop-recommendation', icon: <Bot size={20} />, label: t('crop_recommendation') },
+                    { path: '/profile', icon: <User size={20} />, label: t('profile') },
+                ];
+        }
+    };
+
+    const navItems = getNavItems();
 
     return (
         <div className={`min-h-screen flex bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200`}>
@@ -84,7 +90,7 @@ const Layout = () => {
                 <nav className="p-4 space-y-2">
                     {navItems.map((item) => (
                         <Link
-                            key={item.path}
+                            key={`${item.path}-${item.label}`}
                             to={item.path}
                             onClick={() => setIsSidebarOpen(false)}
                             className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${location.pathname === item.path

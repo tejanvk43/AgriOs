@@ -78,6 +78,9 @@ const Login = () => {
                             Register here
                         </Link>
                     </p>
+                    <p className="mt-4 text-xs text-gray-400 dark:text-gray-500 border-t border-gray-100 dark:border-gray-800 pt-4">
+                        Are you an Official? <span onClick={() => navigate('/admin/login')} className="text-gray-600 dark:text-gray-300 hover:text-green-600 font-medium cursor-pointer transition-colors block mt-1 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100">Login to Governance Portal</span>
+                    </p>
                 </div>
             </div>
         </div>

@@ -348,16 +348,30 @@ const AIAgent = () => {
     }, [messages]);
 
     return (
-        <div className="flex flex-col h-[calc(100vh-6rem)] lg:h-screen bg-gray-100 dark:bg-gray-900 overflow-hidden">
+        <div className="flex flex-col h-[calc(100vh-4rem)] lg:h-screen bg-gray-100 dark:bg-gray-900 overflow-hidden relative">
             {/* Header / Controls */}
-            <div className="flex flex-wrap items-center justify-between bg-white dark:bg-gray-800 shadow p-2 px-4 gap-2 z-10 shrink-0">
-                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-full p-1">
-                    <button onClick={() => { stopSpeaking(); setMode('live'); }} className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${mode === 'live' ? 'bg-green-600 text-white shadow' : 'text-gray-600 dark:text-gray-300'}`}>Live</button>
-                    <button onClick={() => { stopSpeaking(); setMode('chat'); }} className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${mode === 'chat' ? 'bg-green-600 text-white shadow' : 'text-gray-600 dark:text-gray-300'}`}>Chat</button>
+            <div className="flex flex-wrap items-center justify-between bg-white dark:bg-gray-800 shadow p-3 px-4 gap-3 z-10 shrink-0">
+                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-full p-1.5 shadow-inner">
+                    <button
+                        onClick={() => { stopSpeaking(); setMode('live'); }}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${mode === 'live' ? 'bg-green-600 text-white shadow-md transform scale-105' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+                    >
+                        Live
+                    </button>
+                    <button
+                        onClick={() => { stopSpeaking(); setMode('chat'); }}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${mode === 'chat' ? 'bg-green-600 text-white shadow-md transform scale-105' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+                    >
+                        Chat
+                    </button>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Languages size={18} className="text-gray-500" />
-                    <select value={selectedLanguage} onChange={(e) => { setSelectedLanguage(e.target.value); stopSpeaking(); }} className="bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block p-1.5">
+                    <Languages size={20} className="text-gray-500 hidden sm:block" />
+                    <select
+                        value={selectedLanguage}
+                        onChange={(e) => { setSelectedLanguage(e.target.value); stopSpeaking(); }}
+                        className="bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-xl focus:ring-green-500 focus:border-green-500 block p-2.5 min-w-[140px]"
+                    >
                         {LANGUAGES.map(lang => (<option key={lang.value} value={lang.value}>{lang.label}</option>))}
                     </select>
                 </div>
@@ -366,9 +380,9 @@ const AIAgent = () => {
             <div className="flex-1 relative overflow-hidden flex flex-col md:flex-row">
                 {/* Live Mode Area */}
                 {mode === 'live' && (
-                    <div className="relative w-full h-full md:w-1/2 lg:w-2/3 bg-black flex flex-col">
+                    <div className="relative w-full h-full md:w-1/2 lg:w-2/3 bg-black flex flex-col items-center justify-center overflow-hidden bg-grid-white/[0.05]">
                         {/* Camera Feed */}
-                        <div className="relative w-full h-full">
+                        <div className="relative w-full h-full max-w-4xl aspect-[3/4] md:aspect-video lg:aspect-auto lg:h-full">
                             {isCameraOn ? (
                                 <>
                                     <Webcam
@@ -381,7 +395,7 @@ const AIAgent = () => {
                                     {/* Drawing Canvas Overlay */}
                                     <canvas
                                         ref={canvasRef}
-                                        className="absolute inset-0 w-full h-full cursor-crosshair touch-none"
+                                        className="absolute inset-0 w-full h-full cursor-crosshair touch-none z-10"
                                         onMouseDown={startDrawing}
                                         onMouseMove={draw}
                                         onMouseUp={stopDrawing}
@@ -392,111 +406,101 @@ const AIAgent = () => {
                                     />
                                 </>
                             ) : (
-                                <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-gray-500">
-                                    <VideoOff size={48} />
-                                    <p className="mt-2 text-sm">Camera Off</p>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-gray-500 p-8 text-center">
+                                    <div className="p-6 bg-gray-800 rounded-full mb-4">
+                                        <VideoOff size={48} className="opacity-50" />
+                                    </div>
+                                    <p className="text-lg font-medium">Camera is Off</p>
+                                    <p className="text-sm opacity-60 mt-1">Enable camera for AI analysis or switch to Chat mode.</p>
                                 </div>
                             )}
-                        </div>
 
-                        {/* Top Controls Overlay */}
-                        <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
-                            <button onClick={switchCamera} className="p-2 bg-black/50 text-white rounded-full hover:bg-black/70"><SwitchCamera size={20} /></button>
-                            <button onClick={toggleCamera} className="p-2 bg-black/50 text-white rounded-full hover:bg-black/70">{isCameraOn ? <Video size={20} /> : <VideoOff size={20} />}</button>
-                            <button onClick={toggleMute} className={`p-2 rounded-full hover:bg-black/70 ${isMuted ? 'bg-red-500 text-white' : 'bg-black/50 text-white'}`}>{isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}</button>
-                        </div>
+                            {/* Mobile-Optimized Top Controls */}
+                            <div className="absolute top-4 right-4 flex flex-col gap-3 z-30">
+                                <button onClick={switchCamera} className="p-3 bg-black/40 backdrop-blur-md border border-white/10 text-white rounded-full hover:bg-black/60 transition active:scale-95 shadow-lg"><SwitchCamera size={22} /></button>
+                                <button onClick={toggleCamera} className="p-3 bg-black/40 backdrop-blur-md border border-white/10 text-white rounded-full hover:bg-black/60 transition active:scale-95 shadow-lg">{isCameraOn ? <Video size={22} /> : <VideoOff size={22} />}</button>
+                                <button onClick={toggleMute} className={`p-3 rounded-full hover:bg-black/60 transition active:scale-95 shadow-lg border border-white/10 backdrop-blur-md ${isMuted ? 'bg-red-500 text-white' : 'bg-black/40 text-white'}`}>{isMuted ? <VolumeX size={22} /> : <Volume2 size={22} />}</button>
+                            </div>
 
-                        {/* Drawing Toolbar (Left Side) */}
-                        {isCameraOn && (
-                            <div className="absolute top-1/2 left-4 -translate-y-1/2 flex flex-col gap-3 z-20 bg-black/40 p-2 rounded-full backdrop-blur-sm">
-                                {COLORS.map((c) => (
+                            {/* Drawing Toolbar */}
+                            {isCameraOn && (
+                                <div className="absolute top-1/2 left-4 -translate-y-1/2 flex flex-col gap-3 z-30 bg-black/40 backdrop-blur-md p-2.5 rounded-full border border-white/10 shadow-xl">
+                                    {COLORS.map((c) => (
+                                        <button
+                                            key={c.color}
+                                            onClick={() => { setPenColor(c.color); setTool('pen'); }}
+                                            className={`w-9 h-9 rounded-full border-2 transition-transform ${penColor === c.color && tool === 'pen' ? 'border-white scale-110 shadow-lg' : 'border-transparent hover:scale-105'}`}
+                                            style={{ backgroundColor: c.color }}
+                                            title={c.label}
+                                        />
+                                    ))}
+                                    <div className="h-px bg-white/20 my-1 mx-2" />
                                     <button
-                                        key={c.color}
-                                        onClick={() => { setPenColor(c.color); setTool('pen'); }}
-                                        className={`w-8 h-8 rounded-full border-2 ${penColor === c.color && tool === 'pen' ? 'border-white scale-110' : 'border-transparent'}`}
-                                        style={{ backgroundColor: c.color }}
-                                        title={c.label}
-                                    />
-                                ))}
-                                <div className="h-px bg-white/20 my-1" />
-                                <button
-                                    onClick={() => setTool('eraser')}
-                                    className={`p-2 rounded-full text-white transition-all ${tool === 'eraser' ? 'bg-white text-black' : 'hover:bg-white/20'}`}
-                                    title="Eraser"
-                                >
-                                    <div className="w-4 h-4 border-2 border-current rounded-sm transform rotate-45" />
-                                    {/* Simple Eraser Icon or import from lucide if available. Using CSS shape for now or Eraser icon if imported */}
-                                </button>
-                                <button
-                                    onClick={clearCanvas}
-                                    className="p-2 text-white hover:text-red-400 transition-colors"
-                                    title="Clear All"
-                                >
-                                    <RefreshCw size={20} />
-                                </button>
-                            </div>
-                        )}
-
-                        {/* Bottom Action Bar */}
-                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-6 flex flex-col items-center gap-4">
-                            {/* Latest AI Reply Overlay */}
-                            {messages.length > 0 && messages[messages.length - 1].sender === 'ai' && (
-                                <div className="bg-black/60 backdrop-blur-sm p-4 rounded-xl text-white text-center max-h-[60vh] overflow-y-auto w-full max-w-xl border border-white/20 flex flex-col items-center gap-3">
-                                    {/* Show Analyzed Image with Boxes in Live Mode */}
-                                    {messages[messages.length - 1].image && (
-                                        <div className="relative w-full max-w-[200px] aspect-square rounded-lg overflow-hidden border border-white/30 shrink-0">
-                                            <img src={messages[messages.length - 1].image} alt="Analyzed" className="w-full h-full object-cover" />
-                                            {messages[messages.length - 1].boxes && messages[messages.length - 1].boxes.map((box, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    className="absolute border-2 border-red-500 bg-red-500/20"
-                                                    style={{
-                                                        top: `${box.ymin / 10}%`,
-                                                        left: `${box.xmin / 10}%`,
-                                                        height: `${(box.ymax - box.ymin) / 10}%`,
-                                                        width: `${(box.xmax - box.xmin) / 10}%`
-                                                    }}
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
-                                    <p className="text-lg font-medium">{messages[messages.length - 1].text}</p>
+                                        onClick={() => setTool('eraser')}
+                                        className={`p-2.5 rounded-full text-white transition-all ${tool === 'eraser' ? 'bg-white text-black shadow-lg scale-105' : 'hover:bg-white/20'}`}
+                                        title="Eraser"
+                                    >
+                                        <div className="w-5 h-5 border-2 border-current rounded-sm transform rotate-45" />
+                                    </button>
+                                    <button
+                                        onClick={clearCanvas}
+                                        className="p-2.5 text-white hover:text-red-400 transition-colors active:scale-90"
+                                        title="Clear All"
+                                    >
+                                        <RefreshCw size={22} />
+                                    </button>
                                 </div>
                             )}
-                            <div className="flex items-center gap-6">
-                                <button onClick={toggleListening} className={`p-6 rounded-full shadow-lg transition-all scale-100 hover:scale-105 ${isListening ? 'bg-red-500 animate-pulse' : 'bg-green-600'}`}>
-                                    {isListening ? <StopCircle size={32} color="white" /> : <Mic size={32} color="white" />}
-                                </button>
-                                {isSpeaking && (
-                                    <button onClick={stopSpeaking} className="p-4 bg-gray-700/80 rounded-full text-white hover:bg-gray-600">
-                                        <VolumeX size={24} />
-                                    </button>
+
+                            {/* Bottom Action Bar */}
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-20 pb-8 px-6 flex flex-col items-center gap-5 z-20">
+                                {/* Latest AI Reply Overlay */}
+                                {messages.length > 0 && messages[messages.length - 1].sender === 'ai' && (
+                                    <div className="bg-black/60 backdrop-blur-md p-4 rounded-2xl text-white text-center max-h-[40vh] overflow-y-auto w-full max-w-lg border border-white/20 flex flex-col items-center gap-3 animate-slide-up shadow-2xl">
+                                        <p className="text-lg md:text-xl font-medium leading-relaxed">{messages[messages.length - 1].text}</p>
+                                    </div>
                                 )}
+
+                                <div className="flex items-center gap-8">
+                                    <button
+                                        onClick={toggleListening}
+                                        className={`p-5 rounded-full shadow-2xl transition-all duration-300 transform ${isListening ? 'bg-red-500 scale-110 animate-pulse ring-4 ring-red-500/30' : 'bg-green-600 hover:scale-110 hover:bg-green-500 ring-4 ring-green-600/30'}`}
+                                        title={isListening ? "Stop Listening" : "Start Listening"}
+                                    >
+                                        {isListening ? <StopCircle size={40} color="white" /> : <Mic size={40} color="white" />}
+                                    </button>
+
+                                    {isSpeaking && (
+                                        <button onClick={stopSpeaking} className="p-4 bg-gray-700/80 backdrop-blur-sm rounded-full text-white hover:bg-gray-600 transition shadow-lg animate-bounce-in">
+                                            <VolumeX size={24} />
+                                        </button>
+                                    )}
+                                </div>
+                                <p className="text-white/90 text-sm font-medium tracking-wide drop-shadow-md bg-black/20 px-3 py-1 rounded-full backdrop-blur-sm">
+                                    {isListening ? `Listening (${selectedLanguage})...` : isMuted ? "Muted" : "Tap Mic to Speak"}
+                                </p>
                             </div>
-                            <p className="text-white/80 text-sm font-medium">{isListening ? `Listening (${selectedLanguage})...` : isMuted ? "Muted" : "Tap Mic to Speak"}</p>
                         </div>
                     </div>
                 )}
 
-                {/* Chat History Panel (Always visible in Chat mode, Side panel in Live mode on large screens?) */}
-                {/* User check: "Putted in chat... shown on right side if large screen... small screen after call" */}
-                {/* Implementation: On md+, show chat panel on right (1/3 width). On sm, if Chat mode, show full. If Live mode, hide (using overlay for latest). */}
-
-                <div className={`${mode === 'live' ? 'hidden md:flex w-full md:w-1/2 lg:w-1/3 border-l border-gray-200 dark:border-gray-700' : 'flex w-full'} flex-col bg-white dark:bg-gray-800`}>
-                    <div className="p-4 border-b border-gray-200 dark:border-gray-700 font-semibold text-gray-700 dark:text-gray-200">
-                        Conversation History
+                {/* Chat History Panel */}
+                <div className={`${mode === 'live' ? 'hidden md:flex w-full md:w-1/2 lg:w-1/3 border-l border-gray-200 dark:border-gray-700' : 'flex w-full'} flex-col bg-white dark:bg-gray-800 h-full`}>
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700 font-semibold text-gray-700 dark:text-gray-200 shadow-sm flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+                        <span>Conversation History</span>
+                        <span className="text-xs font-normal text-gray-500">{messages.length} messages</span>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
                         {messages.map((msg) => (
-                            <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[85%] rounded-2xl p-3 shadow-sm ${msg.sender === 'user' ? 'bg-green-600 text-white rounded-tr-none' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-tl-none relative'}`}>
+                            <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
+                                <div className={`max-w-[85%] rounded-2xl p-4 shadow-sm ${msg.sender === 'user' ? 'bg-green-600 text-white rounded-tr-none' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-tl-none border border-gray-200 dark:border-gray-600'}`}>
                                     {msg.image && (
-                                        <div className="relative mb-2">
-                                            <img src={msg.image} alt="Upload" className="max-w-full h-auto max-h-64 object-cover rounded" />
+                                        <div className="relative mb-3 group">
+                                            <img src={msg.image} alt="Upload" className="max-w-full h-auto max-h-64 object-cover rounded-lg shadow-md transition-transform group-hover:scale-[1.02]" />
                                             {msg.boxes && msg.boxes.map((box, idx) => (
                                                 <div
                                                     key={`${msg.id}-box-${idx}`}
-                                                    className="absolute border-2 border-red-500 bg-red-500/20 rounded-sm"
+                                                    className="absolute border-2 border-red-500 bg-red-500/10 rounded-sm"
                                                     style={{
                                                         top: `${box.ymin / 10}%`,
                                                         left: `${box.xmin / 10}%`,
@@ -504,28 +508,41 @@ const AIAgent = () => {
                                                         width: `${(box.xmax - box.xmin) / 10}%`
                                                     }}
                                                 >
-                                                    <span className="absolute -top-6 left-0 bg-red-500 text-white text-xs px-1 rounded">{box.label}</span>
+                                                    <span className="absolute -top-6 left-0 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded shadow-sm">{box.label}</span>
                                                 </div>
                                             ))}
                                         </div>
                                     )}
-                                    <p className="text-sm">{msg.text}</p>
+                                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
                                 </div>
                             </div>
                         ))}
                         <div ref={messagesEndRef} />
                     </div>
 
-                    {/* Input Area (Only active if not in Live mode or if we want hybrid?) */}
+                    {/* Chat Input Area */}
                     {mode === 'chat' && (
-                        <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-                            <div className="bg-white dark:bg-gray-800 p-2 rounded-full shadow-sm border border-gray-200 dark:border-gray-700 flex items-center gap-2">
-                                <label className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full cursor-pointer text-gray-500">
-                                    <ImageIcon size={20} />
+                        <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 z-20">
+                            <div className="bg-white dark:bg-gray-800 p-2 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex items-center gap-3 transition-colors focus-within:ring-2 focus-within:ring-green-500/50 focus-within:border-green-500">
+                                <label className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl cursor-pointer text-gray-500 transition-colors">
+                                    <ImageIcon size={22} />
                                     <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                                 </label>
-                                <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSend()} placeholder="Type a message..." className="flex-1 bg-transparent border-none focus:ring-0 text-sm" />
-                                <button onClick={() => handleSend()} disabled={isLoading} className="p-2 bg-green-600 rounded-full text-white"><Send size={18} /></button>
+                                <input
+                                    type="text"
+                                    value={inputText}
+                                    onChange={(e) => setInputText(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                                    placeholder="Type a message..."
+                                    className="flex-1 bg-transparent border-none focus:ring-0 text-base py-2"
+                                />
+                                <button
+                                    onClick={() => handleSend()}
+                                    disabled={isLoading}
+                                    className={`p-2.5 rounded-xl text-white transition-all transform ${isLoading ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700 active:scale-95 shadow-md'}`}
+                                >
+                                    <Send size={20} />
+                                </button>
                             </div>
                         </div>
                     )}

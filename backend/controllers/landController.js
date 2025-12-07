@@ -93,9 +93,35 @@ const getLandById = async (req, res) => {
     }
 };
 
+// @desc    Delete land record
+// @route   DELETE /api/land/:id
+// @access  Private
+const deleteLandRecord = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const landId = req.params.id;
+
+        const land = await LandRecord.findOne({
+            where: { id: landId, userId }
+        });
+
+        if (!land) {
+            return res.status(404).json({ message: 'Land record not found' });
+        }
+
+        await land.destroy();
+
+        res.json({ message: 'Land record deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting land:', error);
+        res.status(500).json({ message: 'Server error deleting land' });
+    }
+};
+
 module.exports = {
     verifyLandRecord,
     saveLandRecords,
     getLandRecords,
-    getLandById
+    getLandById,
+    deleteLandRecord
 };

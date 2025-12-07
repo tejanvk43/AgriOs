@@ -1,8 +1,7 @@
 import axios from 'axios';
 
 // Detect dynamic host or fallback to localhost
-const API_HOST = window.location.hostname;
-const API_URL = `http://${API_HOST}:5000/api/ai`;
+const API_URL = `/api/ai`;
 
 const chatWithAgent = async (message, imageFile, language = 'en-IN') => {
     try {

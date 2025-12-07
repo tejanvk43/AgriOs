@@ -19,7 +19,7 @@ const AddCropModal = ({ isOpen, onClose, landId, onCropAdded }) => {
 
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:5000/api/crops', {
+            const response = await fetch('/api/crops', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

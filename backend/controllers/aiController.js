@@ -106,6 +106,7 @@ exports.chatAgent = async (req, res) => {
 
         let result;
         try {
+            // JSON Output for Visual Grounding
             if (imageFile) {
                 const imageData = {
                     inlineData: {
@@ -113,31 +114,77 @@ exports.chatAgent = async (req, res) => {
                         mimeType: imageFile.mimetype,
                     },
                 };
-                result = await model.generateContent([prompt, imageData]);
+                // JSON Prompt
+                const visionPrompt = `
+                    ${prompt}
+                    CRITICAL OUTPUT FORMAT:
+                    Return a strictly valid JSON object. Do not use Markdown code blocks.
+                    Structure: 
+                    {
+                        "text": "Your conversational response here (in ${languageCode})",
+                        "boxes": [
+                            {"label": "object_name", "ymin": 0-1000, "xmin": 0-1000, "ymax": 0-1000, "xmax": 0-1000}
+                        ]
+                    }
+                    Coordinates should be normalized to 0-1000 scale.
+                    If no specific object/pest is detected or relevant, return empty boxes array.
+                `;
+                result = await model.generateContent([visionPrompt, imageData]);
+                const response = await result.response;
+                const rawText = response.text().replace(/```json|```/g, '').trim();
+                let responseJson = { text: rawText, boxes: [] };
+                try {
+                    responseJson = JSON.parse(rawText);
+                } catch (e) {
+                    console.error("JSON Parse Error:", e);
+                }
+
+                // Save AI Response
+                await ChatMessage.create({
+                    userId: userId,
+                    sender: 'ai',
+                    text: responseJson.text,
+                    language: languageCode,
+                    boxes: responseJson.boxes
+                });
+
+                if (imageFile) fs.unlink(imageFile.path, () => { });
+
+                res.json({
+                    response: responseJson.text,
+                    boxes: responseJson.boxes || []
+                });
+
             } else {
                 result = await model.generateContent(prompt);
+                const response = await result.response;
+                const text = response.text().replace(/\*|\#|\[.*?\]/g, '').trim();
+
+                await ChatMessage.create({
+                    userId: userId,
+                    sender: 'ai',
+                    text: text,
+                    language: languageCode
+                });
+
+                res.json({ response: text });
             }
 
-            const response = await result.response;
-            const text = response.text();
-
-            // Save AI Response to DB
-            await ChatMessage.create({
-                userId: userId,
-                sender: 'ai',
-                text: text,
-                language: languageCode
-            });
-
-            if (imageFile) fs.unlink(imageFile.path, () => { });
-
-            res.json({ response: text });
         } catch (geminiError) {
             console.error("Gemini API Error:", geminiError);
             if (imageFile) fs.unlink(imageFile.path, () => { });
-            res.status(500).json({ message: "AI Brain Error", error: geminiError.message });
-        }
 
+            // User-friendly error for network issues
+            const errorMsg = geminiError.message?.includes('fetch failed')
+                ? "Cannot connect to AI Brain. Please check your internet connection and firewall settings."
+                : "AI processing error. Please try again.";
+
+            res.status(500).json({
+                message: errorMsg,
+                error: geminiError.message,
+                hint: "Verify GEMINI_API_KEY is set and internet is accessible from backend server."
+            });
+        }
     } catch (error) {
         console.error('AI Agent Error:', error);
         res.status(500).json({ message: 'Error processing AI request', error: error.message });
@@ -171,7 +218,33 @@ exports.voiceAudio = async (req, res) => {
         const contextHistory = history.reverse();
         let historyContext = contextHistory.map(m => `${m.sender}: ${m.text}`).join('\n');
 
-        let context = `You are AgriGenius. Current conversation history:\n${historyContext}\nReply in ${languageCode}. Keep it very short (max 2 sentences) for speech.`;
+        let context = `You are AgriGenius. Current conversation history:\n${historyContext}\n`;
+        context += `
+        CRITICAL TASK: 
+        1. Detect the language of the user's latest input "${userMessage}".
+           NOTE: The input might be in Roman script (English letters) but speaking an Indian Language (Transliteration).
+           Identify the language based on these common PHRASES or similar patterns:
+           - Hindi (hi-IN): "kaise ho", "kya kar rahe ho", "namaste", "idhar aao", "kya haal hai"
+           - Telugu (te-IN): "ela unnaru", "em chestunnav", "bagunnara", "ekkadiki", "cheppandi"
+           - Tamil (ta-IN): "eppadi irukkinga", "enna panringa", "vanakkam", "engirundhu", "solunga"
+           - Kannada (kn-IN): "hegidira", "chenagiddira", "en madtidira", "ellidira", "beku"
+           - Malayalam (ml-IN): "sukhamaano", "entha cheyyunne", "evideya", "samsarikkuka"
+           - Marathi (mr-IN): "kase ahat", "kay kartay", "kuthe ahat", "bol", "ikde ye"
+           - Gujarati (gu-IN): "kem cho", "su karo cho", "kyan", "aavo", "majam cho"
+           - Bengali (bn-IN): "kemon acho", "ki korcho", "kothay", "bhalo", "bolo"
+           - Punjabi (pa-IN): "ki haal hai", "kiddan", "ki kar rahe ho", "kidhar", "dasso"
+           - Odia (or-IN): "kemiti achanti", "kana karucha", "kau thi", "kuhantu"
+           
+        2. If the user set language is "auto" (or if detected language is clearly different from ${languageCode}), switch to the detected language.
+           - If the input is Romanized (e.g., "ela unnaru"), reply in the NATIVE SCRIPT of that language (e.g., Telugu script) AND audio.
+        3. Reply in that language.
+        4. Return the response in this JSON format ONLY:
+        {
+            "replyText": "Your reply here",
+            "detectedLanguage": "te-IN" (or relevant code)
+        }
+        `;
+
         if (userMessage.toLowerCase().includes('recommend') && cropData.length > 0) context += JSON.stringify(cropData.slice(0, 3));
         if (userMessage.toLowerCase().includes('price') && marketData.length > 0) context += JSON.stringify(marketData.slice(0, 3));
 
@@ -183,6 +256,7 @@ exports.voiceAudio = async (req, res) => {
         const prompt = context + "\nQuestion: " + finalMessage;
 
         let replyText = "";
+        let detectedLang = languageCode;
 
         // Gemini Call
         if (imageFile) {
@@ -194,11 +268,25 @@ exports.voiceAudio = async (req, res) => {
             };
             const result = await model.generateContent([prompt, imageData]);
             const response = await result.response;
-            replyText = response.text().replace(/\*|\#|\[.*?\]/g, '').trim();
+            const rawText = response.text().replace(/```json|```/g, '').trim();
+            try {
+                const json = JSON.parse(rawText);
+                replyText = json.replyText;
+                detectedLang = json.detectedLanguage || languageCode;
+            } catch (e) {
+                replyText = rawText; // Fallback
+            }
         } else {
             const result = await model.generateContent(prompt);
             const response = await result.response;
-            replyText = response.text().replace(/\*|\#|\[.*?\]/g, '').trim();
+            const rawText = response.text().replace(/```json|```/g, '').trim();
+            try {
+                const json = JSON.parse(rawText);
+                replyText = json.replyText;
+                detectedLang = json.detectedLanguage || languageCode;
+            } catch (e) {
+                replyText = rawText; // Fallback
+            }
         }
 
         // Clean up file
@@ -219,7 +307,7 @@ exports.voiceAudio = async (req, res) => {
             'pa-IN': 'pa-IN-OjasNeural',
             'or-IN': 'or-IN-SubhasiniNeural'
         };
-        const voice = VOICE_MAP[languageCode] || 'en-IN-NeerjaNeural';
+        const voice = VOICE_MAP[detectedLang] || VOICE_MAP[languageCode] || 'en-IN-NeerjaNeural';
 
         const { Communicate } = require('edge-tts-universal');
         const mkComm = new Communicate(replyText, voice);
@@ -245,7 +333,7 @@ exports.voiceAudio = async (req, res) => {
         res.json({
             replyText,
             audioBase64,
-            languageCode
+            languageCode: detectedLang
         });
 
     } catch (error) {
