@@ -11,27 +11,28 @@ const Home = () => {
     const { user } = useAuth();
     const { landId } = useParams();
     const [land, setLand] = useState(null);
+    const [advisories, setAdvisories] = useState([]);
 
     useEffect(() => {
-        if (!landId) return;
-
-        const fetchLand = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                const response = await fetch(`/api/land/${landId}`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    setLand(data);
-                }
-            } catch (error) {
-                console.error('Error fetching land:', error);
-            }
-        };
-
-        fetchLand();
+        if (landId) {
+            fetchLand();
+        }
     }, [landId]);
+
+    const fetchLand = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`/api/land/${landId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setLand(data);
+            }
+        } catch (error) {
+            console.error('Error fetching land:', error);
+        }
+    };
 
     // Determine location to show
     // If land selected -> Land Location
@@ -39,7 +40,29 @@ const Home = () => {
     // Fallback -> Default
     const locationDisplay = land
         ? `${land.village}, ${land.district}`
-        : (user?.location || 'Select a Field');
+        : (user?.location || 'Nagpur'); // Default fallback
+
+    // Fetch Advisories when location is available
+    useEffect(() => {
+        if (locationDisplay) {
+            fetchForecast();
+        }
+    }, [locationDisplay]);
+
+    const fetchForecast = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`/api/weather/forecast?location=${locationDisplay}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setAdvisories(data.advisories || []);
+            }
+        } catch (error) {
+            console.error('Error fetching forecast:', error);
+        }
+    };
 
     return (
         <div className="space-y-8 pb-20">
@@ -53,7 +76,7 @@ const Home = () => {
 
                 <WeatherWidget location={locationDisplay} />
 
-                {!landId && <AlertsWidget />}
+                <AlertsWidget advisories={advisories} />
             </div>
 
             {/* Quick Actions */}

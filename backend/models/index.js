@@ -16,6 +16,7 @@ const FarmerActivity = require('./FarmerActivity');
 const AuditLog = require('./AuditLog');
 const CropCycle = require('./CropCycle');
 const StockLog = require('./StockLog');
+const SoilHealthCard = require('./SoilHealthCard');
 
 // Define Associations
 User.hasMany(Farm, { foreignKey: 'userId' });
@@ -65,6 +66,10 @@ StockLog.belongsTo(Godown, { foreignKey: 'godown_id' });
 User.hasMany(StockLog, { foreignKey: 'farmer_id', as: 'stockMovements' });
 StockLog.belongsTo(User, { foreignKey: 'farmer_id', as: 'farmer' });
 
+// Soil Health Card
+User.hasMany(SoilHealthCard, { foreignKey: 'userId', as: 'soilReports' });
+SoilHealthCard.belongsTo(User, { foreignKey: 'userId' });
+
 // Sync all models
 const syncModels = async () => {
     // Force sync for dev to ensure new tables are created. 
@@ -91,5 +96,6 @@ module.exports = {
     AuditLog,
     CropCycle,
     StockLog,
+    SoilHealthCard,
     syncModels
 };

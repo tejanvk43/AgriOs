@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import { Mic, Send, Camera, Image as ImageIcon, Volume2, VolumeX, StopCircle, RefreshCw, Languages, Video, VideoOff, SwitchCamera, X } from 'lucide-react';
 import aiService from '../services/aiService';
+import weatherService from '../services/weatherService';
+import axios from 'axios';
 
 const LANGUAGES = [
     { label: "Auto Detect", value: "auto" },
@@ -20,15 +22,22 @@ const LANGUAGES = [
 
 const AIAgent = () => {
     const [mode, setMode] = useState('live');
-    const [messages, setMessages] = useState([
-        { id: 1, sender: 'ai', text: 'Namaste! I am AgriGenius. Select your language and speak to me.' }
-    ]);
+    const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState('');
     const [selectedLanguage, setSelectedLanguage] = useState('auto');
     const [isListening, setIsListening] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [selectedImage, setSelectedImage] = useState(null);
+    const [weatherContext, setWeatherContext] = useState(null);
+    const [showWelcome, setShowWelcome] = useState(true);
+
+    const SUGGESTED_QUESTIONS = [
+        "🍅 Tomato Market Price?",
+        "🌾 How to cure Rice Blast?",
+        "🌧️ Weather update for today?",
+        "🚜 Best fertilizer for Cotton?"
+    ];
 
     // New Controls State
     const [isCameraOn, setIsCameraOn] = useState(true);
@@ -121,7 +130,7 @@ const AIAgent = () => {
     }, [mode]); // Reset on mode change
 
 
-    // Fetch History on Mount
+    // Fetch History and Weather on Mount
     useEffect(() => {
         const fetchHistory = async () => {
             try {
@@ -139,7 +148,53 @@ const AIAgent = () => {
                 console.error("Failed to load history", error);
             }
         };
+
+        const initWeather = async () => {
+            try {
+                // 1. Try to get registered land first
+                const token = localStorage.getItem('token');
+                let foundGeo = null;
+
+                if (token) {
+                    try {
+                        const res = await axios.get('/api/land', {
+                            headers: { Authorization: `Bearer ${token}` }
+                        });
+
+                        if (res.data && res.data.length > 0) {
+                            const land = res.data[0];
+                            const query = `${land.village}, ${land.mandal}, ${land.district}`;
+                            const geo = await weatherService.getCoordinates(query);
+                            if (geo.found) {
+                                foundGeo = geo;
+                            }
+                        }
+                    } catch (e) { console.warn("AI Weather: Failed to fetch lands"); }
+                }
+
+                // 2. Fallback to geolocation
+                if (!foundGeo) {
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                            async (position) => {
+                                const data = await weatherService.getDetailedWeather(position.coords.latitude, position.coords.longitude);
+                                setWeatherContext(data);
+                            },
+                            (err) => console.warn("AI Weather: Location denied")
+                        );
+                    }
+                } else {
+                    const data = await weatherService.getDetailedWeather(foundGeo.lat, foundGeo.lon);
+                    setWeatherContext(data);
+                }
+
+            } catch (err) {
+                console.error("AI Weather Init Error:", err);
+            }
+        };
+
         fetchHistory();
+        initWeather();
     }, []);
 
     // Initialize Speech Recognition
@@ -155,6 +210,7 @@ const AIAgent = () => {
                 const transcript = event.results[0][0].transcript;
                 setInputText(transcript);
                 handleSend(transcript);
+                setShowWelcome(false);
             };
 
             recognition.current.onend = () => {
@@ -301,18 +357,19 @@ const AIAgent = () => {
             setMessages(prev => [...prev, tempMsg]);
             setInputText('');
             setSelectedImage(null);
+            setShowWelcome(false);
 
             let response;
             if (isVoiceMode) {
                 // Unified Voice Route
-                response = await aiService.getVoiceResponse(text, currentLang, imageToSend);
+                response = await aiService.getVoiceResponse(text, currentLang, imageToSend, weatherContext);
                 if (response.audioBase64) playAudioResponse(response.audioBase64);
             } else {
                 // Chat Mode
                 if (imageToSend) {
-                    response = await aiService.chatWithAgent(text, imageToSend, currentLang);
+                    response = await aiService.chatWithAgent(text, imageToSend, currentLang, weatherContext);
                 } else {
-                    response = await aiService.chatWithAgent(text, null, currentLang);
+                    response = await aiService.chatWithAgent(text, null, currentLang, weatherContext);
                 }
             }
 
@@ -345,10 +402,10 @@ const AIAgent = () => {
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+    }, [messages, isLoading]);
 
     return (
-        <div className="flex flex-col h-[calc(100vh-4rem)] lg:h-screen bg-gray-100 dark:bg-gray-900 overflow-hidden relative">
+        <div className="flex flex-col h-[calc(100vh-4rem)] lg:h-screen bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 overflow-hidden relative">
             {/* Header / Controls */}
             <div className="flex flex-wrap items-center justify-between bg-white dark:bg-gray-800 shadow p-3 px-4 gap-3 z-10 shrink-0">
                 <div className="flex bg-gray-100 dark:bg-gray-700 rounded-full p-1.5 shadow-inner">
@@ -491,12 +548,44 @@ const AIAgent = () => {
                         <span className="text-xs font-normal text-gray-500">{messages.length} messages</span>
                     </div>
                     <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
+
+                        {/* Welcome View */}
+                        {messages.length === 0 && showWelcome && (
+                            <div className="flex flex-col items-center justify-center h-full text-center space-y-6 animate-fade-in p-6">
+                                <div className="w-24 h-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center shadow-lg border-4 border-white dark:border-gray-700">
+                                    <span className="text-5xl">🌾</span>
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Namaste! I am AgriGenius</h2>
+                                    <p className="text-gray-600 dark:text-gray-400 mt-2">Your friendly farming companion. Ask me anything!</p>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-md">
+                                    {SUGGESTED_QUESTIONS.map((q, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => handleSend(q)}
+                                            className="px-4 py-3 bg-white dark:bg-gray-800 hover:bg-green-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl text-left text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm transition-all hover:scale-[1.02] flex items-center gap-2"
+                                        >
+                                            <span className="text-green-600">➜</span> {q}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {messages.map((msg) => (
-                            <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
-                                <div className={`max-w-[85%] rounded-2xl p-4 shadow-sm ${msg.sender === 'user' ? 'bg-green-600 text-white rounded-tr-none' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-tl-none border border-gray-200 dark:border-gray-600'}`}>
+                            <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in gap-3 group`}>
+                                {/* Avatar AI */}
+                                {msg.sender === 'ai' && (
+                                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0 border border-green-200 shadow-sm self-end mb-1">
+                                        <span className="text-lg">🤖</span>
+                                    </div>
+                                )}
+
+                                <div className={`max-w-[85%] rounded-2xl p-4 shadow-sm relative ${msg.sender === 'user' ? 'bg-gradient-to-br from-green-600 to-green-700 text-white rounded-tr-none' : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-tl-none border border-gray-100 dark:border-gray-600'}`}>
                                     {msg.image && (
-                                        <div className="relative mb-3 group">
-                                            <img src={msg.image} alt="Upload" className="max-w-full h-auto max-h-64 object-cover rounded-lg shadow-md transition-transform group-hover:scale-[1.02]" />
+                                        <div className="relative mb-3 group/img">
+                                            <img src={msg.image} alt="Upload" className="max-w-full h-auto max-h-64 object-cover rounded-lg shadow-md transition-transform group-hover/img:scale-[1.02]" />
                                             {msg.boxes && msg.boxes.map((box, idx) => (
                                                 <div
                                                     key={`${msg.id}-box-${idx}`}
@@ -515,8 +604,30 @@ const AIAgent = () => {
                                     )}
                                     <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
                                 </div>
+
+                                {/* Avatar User */}
+                                {msg.sender === 'user' && (
+                                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0 border border-blue-200 shadow-sm self-end mb-1">
+                                        <span className="text-lg">👤</span>
+                                    </div>
+                                )}
                             </div>
                         ))}
+
+                        {/* Typing Indicator */}
+                        {isLoading && (
+                            <div className="flex justify-start animate-fade-in gap-3">
+                                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0 border border-green-200 shadow-sm self-end mb-1">
+                                    <span className="text-lg">🤖</span>
+                                </div>
+                                <div className="bg-white dark:bg-gray-700 rounded-2xl rounded-tl-none p-4 border border-gray-100 dark:border-gray-600 shadow-sm flex items-center gap-1">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                                </div>
+                            </div>
+                        )}
+
                         <div ref={messagesEndRef} />
                     </div>
 

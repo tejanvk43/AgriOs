@@ -30,6 +30,7 @@ import AdminUsers from './pages/dashboard/AdminUsers';
 import FarmerDetail from './pages/dashboard/FarmerDetail';
 import GodownManagerDashboard from './pages/dashboard/GodownManagerDashboard';
 import StockLogs from './pages/dashboard/StockLogs';
+import PestDoctor from './pages/dashboard/PestDoctor';
 import GovBodyDashboard from './pages/dashboard/GovBodyDashboard';
 
 function App() {
@@ -60,6 +61,7 @@ function App() {
                 <Route path="schemes" element={<Schemes />} />
                 <Route path="training" element={<Training />} />
                 <Route path="help" element={<Help />} />
+                <Route path="pest-doctor" element={<PestDoctor />} />
 
                 {/* Admin / Web Routes */}
                 <Route path="admin/dashboard" element={<AdminDashboard />} />

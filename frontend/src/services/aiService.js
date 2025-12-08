@@ -3,13 +3,16 @@ import axios from 'axios';
 // Detect dynamic host or fallback to localhost
 const API_URL = `/api/ai`;
 
-const chatWithAgent = async (message, imageFile, language = 'en-IN') => {
+const chatWithAgent = async (message, imageFile, language = 'en-IN', weatherContext = null) => {
     try {
         const formData = new FormData();
         formData.append('message', message);
         formData.append('language', language);
         if (imageFile) {
             formData.append('image', imageFile);
+        }
+        if (weatherContext) {
+            formData.append('weatherData', JSON.stringify(weatherContext));
         }
 
         const token = localStorage.getItem('token');
@@ -26,13 +29,16 @@ const chatWithAgent = async (message, imageFile, language = 'en-IN') => {
     }
 };
 
-const getVoiceResponse = async (message, language = 'en-IN', imageFile = null) => {
+const getVoiceResponse = async (message, language = 'en-IN', imageFile = null, weatherContext = null) => {
     try {
         const formData = new FormData();
         formData.append('message', message);
         formData.append('language', language);
         if (imageFile) {
             formData.append('image', imageFile);
+        }
+        if (weatherContext) {
+            formData.append('weatherData', JSON.stringify(weatherContext));
         }
 
         const response = await axios.post(`${API_URL}/voice-audio`, formData, {

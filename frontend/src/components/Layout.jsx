@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Menu, X, Home, CloudSun, Store, User, LogOut, Globe, Moon, Sun, Bot, LayoutDashboard, Users, Warehouse, ScrollText, ClipboardList, CheckCircle } from 'lucide-react';
+import { Menu, X, Home, CloudSun, Store, User, LogOut, Globe, Moon, Sun, Bot, LayoutDashboard, Users, Warehouse, ScrollText, ClipboardList, CheckCircle, Leaf } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -55,6 +55,7 @@ const Layout = () => {
             default: // Farmer & Others
                 return [
                     { path: '/', icon: <Home size={20} />, label: t('dashboard') },
+                    { path: '/pest-doctor', icon: <Leaf size={20} />, label: 'Pest Doctor' },
                     { path: '/market', icon: <Store size={20} />, label: t('market') },
                     { path: '/weather', icon: <CloudSun size={20} />, label: t('weather') },
                     { path: '/crop-recommendation', icon: <Bot size={20} />, label: t('crop_recommendation') },

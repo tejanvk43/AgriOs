@@ -1,125 +1,113 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { CloudSun, Droplets, Wind, Thermometer, Umbrella, MapPin, Loader } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { CloudSun, Droplets, Wind, Thermometer, Umbrella, MapPin, Loader, Calendar, Clock, Navigation } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
+import weatherService from '../services/weatherService';
 
 const Weather = () => {
     const { t } = useTranslation();
     const [weatherData, setWeatherData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [locationName, setLocationName] = useState("Loading location...");
+    const [usingFieldLocation, setUsingFieldLocation] = useState(false);
 
-    const API_KEY = "e47d887a808fecccae21a8bf478c7ccb";
-    const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes in milliseconds
-    const CACHE_KEY = 'weather_cache';
+    // Time Selection State
+    const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
 
-    // Check if cached data is still valid
-    const getCachedData = useCallback(() => {
+    const fetchWeather = useCallback(async (lat, lon, name = "Your Location") => {
         try {
-            const cached = localStorage.getItem(CACHE_KEY);
-            if (!cached) return null;
+            setLoading(true);
+            const data = await weatherService.getDetailedWeather(lat, lon);
+            setWeatherData(data);
+            setLocationName(name);
 
-            const { data, timestamp } = JSON.parse(cached);
-            const now = Date.now();
+            // Find index of current hour in hourly array for initial selection
+            const now = new Date();
+            const closestIndex = data.hourly.time.findIndex(time => time > now);
+            setSelectedTimeIndex(closestIndex !== -1 ? closestIndex : 0);
 
-            // Return cached data if less than 10 minutes old
-            if (now - timestamp < CACHE_DURATION) {
-                console.log('Using cached weather data');
-                return data;
-            }
+            setError(null);
         } catch (err) {
-            console.error('Cache read error:', err);
-        }
-        return null;
-    }, [CACHE_DURATION]);
-
-    // Save data to cache
-    const setCachedData = useCallback((data) => {
-        try {
-            localStorage.setItem(CACHE_KEY, JSON.stringify({
-                data,
-                timestamp: Date.now()
-            }));
-        } catch (err) {
-            console.error('Cache write error:', err);
+            console.error("Weather Fetch Error:", err);
+            setError("Could not load weather data.");
+        } finally {
+            setLoading(false);
         }
     }, []);
 
-    const fetchWeather = useCallback(async (lat, lon) => {
-        // Check cache first
-        const cached = getCachedData();
-        if (cached) {
-            setWeatherData(cached);
-            setLoading(false);
-            setError("Using cached data (refreshes every 10 min)");
-            return;
-        }
-
+    const initWeather = useCallback(async () => {
         try {
-            console.log('Fetching fresh weather data...');
-            // Fetch Current Weather
-            const currentRes = await axios.get(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`);
+            // 1. Try to get registered land first
+            const token = localStorage.getItem('token');
+            let fieldFound = false;
 
-            // Fetch Forecast (5 Day / 3 Hour)
-            const forecastRes = await axios.get(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`);
+            if (token) {
+                try {
+                    const res = await axios.get('/api/land', {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
 
-            const data = {
-                current: currentRes.data,
-                forecast: forecastRes.data
-            };
+                    if (res.data && res.data.length > 0) {
+                        const land = res.data[0];
+                        // Construct query: "Village, Mandal, District"
+                        const query = `${land.village}, ${land.mandal}, ${land.district}`;
+                        console.log("Geocoding Field:", query);
 
-            setWeatherData(data);
-            setCachedData(data); // Save to cache
-            setLoading(false);
-            setError(null);
-        } catch (err) {
-            console.error("Weather API Error:", err);
-
-            // Specific handling for 429 errors
-            if (err.response?.status === 429) {
-                setError("⚠️ API limit exceeded. Showing demo data.");
-            } else {
-                setError("Live data unavailable. Showing demo weather.");
+                        const geo = await weatherService.getCoordinates(query);
+                        if (geo.found) {
+                            setUsingFieldLocation(true);
+                            await fetchWeather(geo.lat, geo.lon, `${geo.name} (Your Field)`);
+                            fieldFound = true;
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Failed to fetch lands:", e);
+                }
             }
-            setWeatherData({
-                current: {
-                    name: "Your Location",
-                    sys: { country: "IN" },
-                    main: { temp: 28, humidity: 65, temp_max: 30, temp_min: 22 },
-                    weather: [{ description: "partly cloudy", icon: "02d" }],
-                    wind: { speed: 3.5 },
-                    clouds: { all: 20 },
-                    rain: null
-                },
-                forecast: {
-                    list: Array(40).fill(0).map((_, i) => ({
-                        dt: (Date.now() / 1000) + (i * 10800),
-                        dt_txt: new Date(Date.now() + i * 10800000).toISOString(),
-                        main: { temp: 28 - (i % 6), temp_max: 30, temp_min: 22 },
-                        weather: [{ icon: i % 3 === 0 ? "01d" : "02d", description: "clear sky" }]
-                    }))
+
+            // 2. Fallback to geolocation
+            if (!fieldFound) {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            fetchWeather(position.coords.latitude, position.coords.longitude, "Current Location");
+                        },
+                        (err) => {
+                            console.warn("Location denied, using default");
+                            fetchWeather(17.3850, 78.4867, "Hyderabad (Default)");
+                        }
+                    );
+                } else {
+                    fetchWeather(17.3850, 78.4867, "Hyderabad (Default)");
                 }
-            });
+            }
+
+        } catch (err) {
+            console.error("Init Error:", err);
             setLoading(false);
         }
-    }, [API_KEY, getCachedData, setCachedData]);
+    }, [fetchWeather]);
 
-    // useEffect only runs ONCE on mount
     useEffect(() => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    fetchWeather(position.coords.latitude, position.coords.longitude);
-                },
-                (err) => {
-                    console.warn("Location denied, using default");
-                    fetchWeather(17.3850, 78.4867);
-                }
-            );
-        } else {
-            fetchWeather(17.3850, 78.4867);
-        }
-    }, [fetchWeather]); // Safe dependency since fetchWeather is memoized with useCallback
+        initWeather();
+    }, [initWeather]);
+
+    // Helpers for display
+    const formatValue = (val, unit = "") => val !== undefined && val !== null ? `${Math.round(val)}${unit}` : "N/A";
+    const formatDecimal = (val, unit = "") => val !== undefined && val !== null ? `${val.toFixed(1)}${unit}` : "N/A";
+
+    const getWeatherIcon = (code) => {
+        // Simple mapping for OpenMeteo WMO codes
+        if (code === 0) return "01d"; // Clear
+        if (code <= 3) return "02d"; // Cloudy
+        if (code <= 48) return "50d"; // Fog
+        if (code <= 67) return "09d"; // Rain
+        if (code <= 77) return "13d"; // Snow
+        if (code <= 82) return "09d"; // Showers
+        if (code <= 99) return "11d"; // Thunderstorm
+        return "02d";
+    };
 
     if (loading) return (
         <div className="flex justify-center items-center h-[50vh]">
@@ -129,131 +117,188 @@ const Weather = () => {
 
     if (!weatherData) return <div className="p-4 text-center text-red-500">Weather Unavailable</div>;
 
-    const { current, forecast } = weatherData;
-    const dailyForecast = forecast.list.filter((reading) => reading.dt_txt.includes("12:00:00")).slice(0, 5);
+    const { current, hourly } = weatherData;
+    const selectedHour = {
+        time: hourly.time[selectedTimeIndex],
+        temp: hourly.temperature_2m[selectedTimeIndex],
+        rain: hourly.rain[selectedTimeIndex],
+        humidity: hourly.relative_humidity_2m[selectedTimeIndex],
+        wind: hourly.wind_speed_10m[selectedTimeIndex],
+        precip_prob: hourly.precipitation_probability[selectedTimeIndex],
+        et0: hourly.et0_fao_evapotranspiration[selectedTimeIndex],
+        soil_temp_180: hourly.temperature_180m[selectedTimeIndex],
+        // Add more mapped fields as needed from the arrays
+        visibility: hourly.visibility[selectedTimeIndex],
+        dew_point: hourly.dew_point_2m[selectedTimeIndex],
+        surface_pressure: current.surface_pressure, // Using current for general metrics where hourly might be overkill or static
+        vapour_pressure_deficit: hourly.vapour_pressure_deficit[selectedTimeIndex]
+    };
 
     return (
         <div className="space-y-6 pb-20">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                {t('weather')}
-                {error && <span className="text-xs text-red-500 font-normal">({error})</span>}
-            </h2>
-
-            {/* Current Weather Card */}
-            <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
-                <div className="relative z-10 flex justify-between items-start">
-                    <div>
-                        <h3 className="text-xl font-semibold mb-1 flex items-center gap-2">
-                            <MapPin size={18} />
-                            {current.name}, {current.sys.country}
-                        </h3>
-                        <p className="text-blue-100 capitalize">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
-                    </div>
-                    <img
-                        src={`https://openweathermap.org/img/wn/${current.weather[0].icon}@2x.png`}
-                        alt={current.weather[0].description}
-                        className="w-16 h-16 bg-white/20 rounded-full"
-                    />
-                </div>
-
-                <div className="mt-8 flex items-end gap-4 relative z-10">
-                    <span className="text-6xl font-bold">{Math.round(current.main.temp)}°</span>
-                    <span className="text-xl mb-2 capitalize">{current.weather[0].description}</span>
-                </div>
-
-                <div className="mt-8 grid grid-cols-3 gap-4 border-t border-white/20 pt-4 relative z-10">
-                    <div className="flex flex-col items-center">
-                        <Droplets size={20} className="mb-1 text-blue-200" />
-                        <span className="text-sm">{current.main.humidity}%</span>
-                        <span className="text-xs text-blue-200">Humidity</span>
-                    </div>
-                    <div className="flex flex-col items-center">
-                        <Wind size={20} className="mb-1 text-blue-200" />
-                        <span className="text-sm">{current.wind.speed} m/s</span>
-                        <span className="text-xs text-blue-200">Wind</span>
-                    </div>
-                    <div className="flex flex-col items-center">
-                        <Umbrella size={20} className="mb-1 text-blue-200" />
-                        <span className="text-sm">{current.clouds.all}%</span>
-                        <span className="text-xs text-blue-200">Clouds</span>
-                    </div>
-                </div>
-
-                {/* Decorative Background Circles */}
-                <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
-                <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-400/20 rounded-full blur-xl"></div>
-            </div>
-
-            {/* Agro Indices (Calculated/Mock based on real data) */}
-            <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Thermometer size={20} className="text-red-500" />
-                        <h4 className="font-semibold text-gray-700 dark:text-gray-200">Sowing Index</h4>
-                    </div>
-                    <p className={`text-2xl font-bold ${current.main.temp > 20 && current.main.temp < 30 ? 'text-green-600' : 'text-orange-500'}`}>
-                        {current.main.temp > 20 && current.main.temp < 30 ? 'Optimal' : 'Moderate'}
+            <div className="flex justify-between items-end">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                        {t('weather')}
+                    </h2>
+                    <p className={`text-sm flex items-center gap-1 ${usingFieldLocation ? "text-green-600 font-medium" : "text-gray-500"}`}>
+                        <MapPin size={14} />
+                        {locationName}
+                        {usingFieldLocation && <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Field Location</span>}
                     </p>
-                    <p className="text-xs text-gray-500">Based on current temp ({Math.round(current.main.temp)}°C).</p>
-                </div>
-                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Droplets size={20} className="text-blue-500" />
-                        <h4 className="font-semibold text-gray-700 dark:text-gray-200">Soil Moisture</h4>
-                    </div>
-                    {/* Mock logic for demo */}
-                    <p className="text-2xl font-bold text-blue-600">{current.rain ? 'High' : 'Normal'}</p>
-                    <p className="text-xs text-gray-500">{current.rain ? 'Recent rainfall detected.' : 'No recent rain.'}</p>
                 </div>
             </div>
 
-            {/* Hourly Forecast (Next few items from list) */}
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-                <h3 className="font-semibold text-gray-800 dark:text-white mb-4">Upcoming Forecast (3-Hour Steps)</h3>
-                <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide">
-                    {forecast.list.slice(0, 8).map((item, i) => (
-                        <div key={i} className="flex flex-col items-center min-w-[70px] p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                            <span className="text-xs text-gray-500 whitespace-nowrap">
-                                {new Date(item.dt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
+            {/* Main Current Weather Card */}
+            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
+                <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+                    <div>
+                        <div className="flex items-center gap-2 mb-1 opacity-90">
+                            <Calendar size={16} />
+                            <span>{current.time.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+                        </div>
+                        <h3 className="text-6xl font-bold mb-2">{formatValue(current.temp)}°</h3>
+                        <p className="text-xl capitalize flex items-center gap-2">
                             <img
-                                src={`https://openweathermap.org/img/wn/${item.weather[0].icon}.png`}
+                                src={`https://openweathermap.org/img/wn/${getWeatherIcon(current.code)}.png`}
+                                className="w-10 h-10 -ml-2 filter brightness-200"
                                 alt="icon"
-                                className="w-10 h-10 my-1"
                             />
-                            <span className="font-semibold text-gray-800 dark:text-white">{Math.round(item.main.temp)}°</span>
+                            Current Conditions
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 w-full md:w-auto bg-white/10 p-4 rounded-xl backdrop-blur-sm border border-white/10">
+                        <div className="flex flex-col">
+                            <span className="text-xs opacity-70 mb-1">Apparent Temp</span>
+                            <span className="font-semibold text-lg">{formatValue(current.apparent_temperature)}°</span>
                         </div>
-                    ))}
+                        <div className="flex flex-col">
+                            <span className="text-xs opacity-70 mb-1">Wind Gusts</span>
+                            <span className="font-semibold text-lg">{formatDecimal(current.wind_gusts_10m)} km/h</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-xs opacity-70 mb-1">Pressure</span>
+                            <span className="font-semibold text-lg">{formatValue(current.pressure_msl)} hPa</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-xs opacity-70 mb-1">Precipitation</span>
+                            <span className="font-semibold text-lg">{formatDecimal(current.precipitation)} mm</span>
+                        </div>
+                    </div>
                 </div>
+
+                {/* Decorative Background */}
+                <div className="absolute -top-20 -right-20 w-80 h-80 bg-blue-400/20 rounded-full blur-3xl"></div>
             </div>
 
-            {/* 5-Day Forecast */}
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-                <h3 className="font-semibold text-gray-800 dark:text-white mb-4">5-Day Forecast</h3>
-                <div className="space-y-4">
-                    {dailyForecast.map((day, i) => (
-                        <div key={i} className="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                            <span className="text-gray-600 dark:text-gray-300 w-24 font-medium">
-                                {new Date(day.dt * 1000).toLocaleDateString('en-IN', { weekday: 'long' })}
-                            </span>
-                            <div className="flex items-center gap-2">
-                                <img
-                                    src={`https://openweathermap.org/img/wn/${day.weather[0].icon}.png`}
-                                    alt="icon"
-                                    className="w-8 h-8"
-                                />
-                                <span className="text-sm text-gray-500 capitalize hidden sm:block">{day.weather[0].description}</span>
-                            </div>
-                            <div className="flex gap-4 w-24 justify-end">
-                                <span className="font-semibold text-gray-800 dark:text-white">{Math.round(day.main.temp_max)}°</span>
-                                <span className="text-gray-400">{Math.round(day.main.temp_min)}°</span>
-                            </div>
-                        </div>
-                    ))}
+            {/* Time Selector */}
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                <div className="flex items-center gap-2 mb-4 text-gray-700 dark:text-gray-200">
+                    <Clock size={18} />
+                    <h3 className="font-semibold">Hourly Forecast Details</h3>
+                </div>
+
+                {/* Horizontal Time Scroller */}
+                <div className="relative">
+                    <div className="flex overflow-x-auto gap-3 pb-4 scrollbar-hide snap-x">
+                        {hourly.time.slice(0, 24).map((time, idx) => {
+                            const isSelected = idx === selectedTimeIndex;
+                            const isNow = idx === hourly.time.findIndex(t => t > new Date()) - 1;
+
+                            return (
+                                <button
+                                    key={idx}
+                                    onClick={() => setSelectedTimeIndex(idx)}
+                                    className={`flex-shrink-0 snap-start flex flex-col items-center justify-center p-3 min-w-[70px] rounded-xl transition-all duration-200 border ${isSelected
+                                            ? 'bg-blue-600 text-white border-blue-600 shadow-md scale-105'
+                                            : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-transparent hover:bg-gray-100 dark:hover:bg-gray-600'
+                                        }`}
+                                >
+                                    <span className="text-xs font-medium mb-1">
+                                        {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                    {/* Small icon based on code or rain */}
+                                    <img
+                                        src={`https://openweathermap.org/img/wn/${getWeatherIcon(hourly.weather_code[idx])}.png`}
+                                        className="w-8 h-8 object-contain"
+                                        alt=""
+                                    />
+                                    <span className="font-bold text-sm mt-1">{Math.round(hourly.temperature_2m[idx])}°</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Detailed Metrics for Selected Hour */}
+                <div className="mt-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    <MetricBox
+                        label="Cloud Cover"
+                        value={`${hourly.cloud_cover[selectedTimeIndex]}%`}
+                        icon={<CloudSun size={18} className="text-gray-500" />}
+                    />
+                    <MetricBox
+                        label="Wind Speed"
+                        value={`${formatDecimal(hourly.wind_speed_10m[selectedTimeIndex])} km/h`}
+                        icon={<Wind size={18} className="text-blue-400" />}
+                    />
+                    <MetricBox
+                        label="Rain"
+                        value={`${formatDecimal(hourly.rain[selectedTimeIndex])} mm`}
+                        icon={<Droplets size={18} className="text-blue-600" />}
+                    />
+                    <MetricBox
+                        label="Humidity"
+                        value={`${hourly.relative_humidity_2m[selectedTimeIndex]}%`}
+                        icon={<Droplets size={18} className="text-cyan-500" />}
+                    />
+                    <MetricBox
+                        label="Dew Point"
+                        value={`${formatValue(hourly.dew_point_2m[selectedTimeIndex])}°`}
+                        icon={<Thermometer size={18} className="text-orange-400" />}
+                    />
+                    <MetricBox
+                        label="Visibility"
+                        value={`${formatValue(hourly.visibility[selectedTimeIndex] / 1000, 'km')}`}
+                        icon={<Navigation size={18} className="text-gray-400" />}
+                    />
+                    <MetricBox
+                        label="Precip Prob"
+                        value={`${hourly.precipitation_probability[selectedTimeIndex]}%`}
+                        icon={<Umbrella size={18} className="text-purple-500" />}
+                    />
+                    <MetricBox
+                        label="Evapotranspiration"
+                        value={`${formatDecimal(hourly.et0_fao_evapotranspiration[selectedTimeIndex])} mm`}
+                        sub="ET0 FAO"
+                        icon={<Wind size={18} className="text-green-500" />}
+                    />
+                    <MetricBox
+                        label="Soil Temp (18cm)"
+                        value={`${formatValue(hourly.temperature_180m[selectedTimeIndex])}°`}
+                        icon={<Thermometer size={18} className="text-brown-500" />} // brown color technically doesn't exist in tw default, using orange fallback effectively or custom
+                    />
+                    <MetricBox
+                        label="Vapor Pressure Deficit"
+                        value={`${formatDecimal(hourly.vapour_pressure_deficit[selectedTimeIndex])} kPa`}
+                        icon={<Wind size={18} className="text-yellow-600" />}
+                    />
                 </div>
             </div>
         </div>
     );
 };
+
+const MetricBox = ({ label, value, icon, sub }) => (
+    <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-600">
+        <div className="flex items-start justify-between mb-2">
+            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{label}</span>
+            {icon}
+        </div>
+        <p className="text-lg font-bold text-gray-800 dark:text-white">{value}</p>
+        {sub && <p className="text-[10px] text-gray-400">{sub}</p>}
+    </div>
+);
 
 export default Weather;
